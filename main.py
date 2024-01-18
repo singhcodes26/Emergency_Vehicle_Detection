@@ -41,6 +41,7 @@ movingGap = 15  # moving gap
 pygame.init()
 simulation = pygame.sprite.Group()
 
+
 class TrafficSignal:
     def __init__(self, red, yellow, green):
         self.red = red
@@ -229,6 +230,8 @@ def generateVehicles():
             Vehicle(lane_number, vehicleTypes[vehicle_type], direction_number, directionNumbers[direction_number])
 
         time.sleep(1)
+
+
 def set_ambulance_lights():
     global currentGreen, currentYellow
 
@@ -277,6 +280,8 @@ class Main:
     thread2.daemon = True
     thread2.start()
 
+    # ... (previous code)
+
     ambulance_detected = False  # Flag to track if an ambulance is detected
 
     while True:
@@ -287,15 +292,41 @@ class Main:
         screen.blit(background, (0, 0))  # display background in simulation
 
         if not ambulance_detected:
-            # Check for ambulance in the left lane
-            for vehicle in vehicles['left'][0]:
-                if isinstance(vehicle, Ambulance):
-                    ambulance_detected = True
-                    # Set lights for the ambulance
-                    set_ambulance_lights()
+            # Check for ambulance in any lane
+            for direction in directionNumbers.values():
+                for lane in range(3):
+                    for vehicle in vehicles[direction][lane]:
+                        if isinstance(vehicle, Ambulance):
+                            ambulance_detected = True
+                            # Set lights for the ambulance with highest priority
+                            currentGreen = direction
+                            currentYellow = 0
+
+                            # Reset stop coordinates of lanes and vehicles
+                            for i in range(0, 3):
+                                for v in vehicles[direction][i]:
+                                    v.stop = defaultStop[direction]
+
+                            # Set all signal times of current signal to default times
+                            signals[direction].green = defaultGreen[direction]
+                            signals[direction].yellow = defaultYellow
+                            signals[direction].red = defaultRed
+
+                            # Set lights for other lanes to red
+                            for other_direction in directionNumbers.values():
+                                if other_direction != direction:
+                                    signals[other_direction].green = 0
+                                    signals[other_direction].yellow = 0
+                                    signals[other_direction].red = defaultRed
+
+                            break
+                    if ambulance_detected:
+                        break
+                if ambulance_detected:
                     break
 
-        for i in range(0, noOfSignals):  # display signal and set timer according to current status: green, yellow, or red
+        for i in range(0,
+                       noOfSignals):  # display signal and set timer according to current status: green, yellow, or red
             if i == currentGreen:
                 if currentYellow == 1:
                     signals[i].signalText = signals[i].yellow
@@ -326,3 +357,4 @@ class Main:
 
 
 Main()
+
