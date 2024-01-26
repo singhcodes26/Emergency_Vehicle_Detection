@@ -138,22 +138,30 @@ class Vehicle(pygame.sprite.Sprite):
                 self.y -= self.speed
 
 
-class Ambulance(pygame.sprite.Sprite):
-    def __init__(self, lane):
-        pygame.sprite.Sprite.__init__(self)
-        self.lane = lane
-        self.speed = speeds['ambulance']
-        self.direction = 'left'
-        self.x = x[self.direction][lane]
-        self.y = y[self.direction][lane]
+class Ambulance(Vehicle):
+    def __init__(self, lane, vehicleClass, direction_number, direction):
+        super().__init__(lane, 'ambulance', 2, 'left')  # Call the constructor of the Vehicle class
+        self.direction = direction
+        self.direction_number = direction_number
+        self.vehicleClass = vehicleClass
         self.crossed = False
-        path = "images/left/ambulance.png"
-        self.image = pygame.image.load(path)
 
-        # Set starting and stopping coordinates
-        temp = self.image.get_rect().width + stoppingGap
-        x[self.direction][lane] -= temp
-        simulation.add(self)
+        # Adjust stop position for ambulance's wider dimensions
+        if len(vehicles[direction][lane]) > 1 and vehicles[direction][lane][self.index - 1].crossed == 0:
+            if direction == 'right':
+                self.stop = vehicles[direction][lane][self.index - 1].stop - \
+                            self.image.get_rect().width - stoppingGap
+            elif direction == 'left':
+                self.stop = vehicles[direction][lane][self.index - 1].stop + \
+                            self.image.get_rect().width + stoppingGap
+            elif direction == 'down':
+                self.stop = vehicles[direction][lane][self.index - 1].stop - \
+                            self.image.get_rect().height - stoppingGap
+            elif direction == 'up':
+                self.stop = vehicles[direction][lane][self.index - 1].stop + \
+                            self.image.get_rect().height + stoppingGap
+        else:
+            self.stop = defaultStop[direction]
 
     def move(self):
         if not self.crossed:
@@ -225,7 +233,7 @@ def generateVehicles():
             direction_number = 3
 
         if vehicleTypes[vehicle_type] == 'ambulance' and random.randint(1, 10) == 1:
-            Ambulance(lane_number)
+            Ambulance(lane_number, 'ambulance', direction_number, directionNumbers[direction_number])
         else:
             Vehicle(lane_number, vehicleTypes[vehicle_type], direction_number, directionNumbers[direction_number])
 
@@ -248,6 +256,33 @@ def set_ambulance_lights():
     signals[currentGreen].green = defaultGreen[currentGreen]
     signals[currentGreen].yellow = defaultYellow
     signals[currentGreen].red = defaultRed
+
+
+def set_ambulance_lane_green(direction_index):
+    global currentGreen, currentYellow
+
+    # Set lights for the ambulance in the specified direction
+    currentGreen = direction_index
+    currentYellow = 0
+
+    direction = directionNumbers[currentGreen]
+
+    # Reset stop coordinates of lanes and vehicles
+    for i in range(0, 3):
+        for vehicle in vehicles[direction][i]:
+            vehicle.stop = defaultStop[direction]
+
+    # Set all signal times of current signal to default times
+    signals[direction_index].green = defaultGreen[currentGreen]
+    signals[direction_index].yellow = defaultYellow
+    signals[direction_index].red = defaultRed
+
+    # Set lights for other lanes to red
+    for other_direction in directionNumbers.values():
+        if other_direction != direction:
+            signals[directionNumbers[other_direction]].green = 0
+            signals[directionNumbers[other_direction]].yellow = 0
+            signals[directionNumbers[other_direction]].red = defaultRed
 
 
 class Main:
@@ -293,36 +328,10 @@ class Main:
 
         if not ambulance_detected:
             # Check for ambulance in any lane
-            for direction in directionNumbers.values():
-                for lane in range(3):
-                    for vehicle in vehicles[direction][lane]:
-                        if isinstance(vehicle, Ambulance):
-                            ambulance_detected = True
-                            # Set lights for the ambulance with highest priority
-                            currentGreen = direction
-                            currentYellow = 0
-
-                            # Reset stop coordinates of lanes and vehicles
-                            for i in range(0, 3):
-                                for v in vehicles[direction][i]:
-                                    v.stop = defaultStop[direction]
-
-                            # Set all signal times of current signal to default times
-                            signals[direction].green = defaultGreen[direction]
-                            signals[direction].yellow = defaultYellow
-                            signals[direction].red = defaultRed
-
-                            # Set lights for other lanes to red
-                            for other_direction in directionNumbers.values():
-                                if other_direction != direction:
-                                    signals[other_direction].green = 0
-                                    signals[other_direction].yellow = 0
-                                    signals[other_direction].red = defaultRed
-
-                            break
-                    if ambulance_detected:
-                        break
-                if ambulance_detected:
+            for vehicle in simulation:
+                if isinstance(vehicle, Ambulance):
+                    ambulance_detected = True
+                    set_ambulance_lane_green(vehicle.direction_number)
                     break
 
         for i in range(0,
@@ -357,4 +366,5 @@ class Main:
 
 
 Main()
+
 
